@@ -126,6 +126,9 @@ int ALIVE = 1;
 int SHOOTER = 2;
 int SHIELD = 3;
 int DEAD = 4;
+int BLACK = 5;
+int WIN = 6;
+int TARGET = 7;
 
 int animationState = INACTIVE;
 
@@ -170,7 +173,33 @@ void drawPlayer()
 {
     if (animationState == INACTIVE) return;
 
+    if (animationState == BLACK || animationState == TARGET)
+    {
+        for (int i = 0; i < 15; ++i)
+        {
+            //setPixel(i, CHSV(0, 0, beatsin16(250, 0, 255)));
+            setPixel(i, CHSV(0, 0, 0));
+        }
+
+        if (animationState == TARGET)
+        {
+            setPixel(7, CRGB(255, 0, 0));
+        }
+        return;
+    }
+
     nscale8(leds, 15, 230);
+
+    if (animationState == WIN)
+    {
+        int offset = beatsin16(37, 6, 15 - 6);
+        for (int i = 0; i < beatsin16(myPulseSpeed, 1, 6); i++)
+        {
+            setPixel(offset + i, CRGB(0, 255, 0));
+            setPixel(offset - i, CRGB(0, 255, 0));
+        }
+    }
+
 
     if (animationState == ALIVE || animationState == SHIELD)
     {
@@ -336,7 +365,7 @@ BLYNK_WRITE(V7)
 BLYNK_WRITE(V8)
 {
     isGameStarted = true;
-    animationState = INACTIVE;
+    animationState = BLACK;
 }
 
 // Server uses this to tell others who is the shooter
@@ -376,7 +405,7 @@ void loopGame()
     {
         if(readyPlayerCount == numberOfPlayers) {
             isGameStarted = true;
-            animationState = INACTIVE;
+            animationState = BLACK;
             bridge1.virtualWrite(V8, 1);
         }
 
@@ -417,6 +446,11 @@ void loopGame()
                 heroId = shooterId == numberOfPlayers - 1 ? shooterId - 1 : shooterId + 1; 
             }
 
+            if (myId == heroId)
+            {
+                hasDefendedSelf = true; // hero is already protected, but if they press the button later, they lose this
+            }
+
             bridge1.virtualWrite(V9, shooterId);
             bridge1.virtualWrite(V12, heroId);
         }
@@ -439,11 +473,12 @@ void loopGame()
         {
             if(myId != heroId && myId != shooterId && !hasDefendedSelf)
             {
-                leds[7] = CRGB(255, 0, 0);
+                //leds[7] = CRGB(255, 0, 0);
+                animationState = TARGET;
             }
             else if (myId == heroId)
             {
-                hasDefendedSelf = true; // hero is already protected, but if they press the button later, they lose this
+                //hasDefendedSelf = true; // hero is already protected, but if they press the button later, they lose this
             }
 
             if(millis() - shotTimestamp < gameLength)
@@ -482,8 +517,8 @@ void loopGame()
                 {
                     green = 0;
                     red = blue = 255;
-                    animationState = ALIVE;
-                    updateStrip();
+                    animationState = WIN;
+                    //updateStrip();
                 }
                 else if (shooterId == myId)
                 {
@@ -544,8 +579,8 @@ void loop()
     //logToEmoncms();
     keepFireAlive();
     loopGame();
+    drawPlayer();
 
     Blynk.run();
-    drawPlayer();
     delay(10);
 }
