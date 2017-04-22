@@ -506,7 +506,8 @@ void loopGame()
     }
 }
 
-void restartGame() {
+void restartGame()
+{
     Serial.println("Restart a game. Preferably this game.");
     digitalWrite(D2, LOW);
     readyPlayerCount = 0;
@@ -517,6 +518,7 @@ void restartGame() {
     hasDefendedSelf = false;
     animationState = INACTIVE;
 }
+
 
 int isButtonPressed() {
     if (digitalRead(D3) == LOW && !buttonPressed)
