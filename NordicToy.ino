@@ -43,9 +43,13 @@ void setup()
     Serial.print("My hardware id: ");
     Serial.println(system_get_chip_id());
 
-    if (system_get_chip_id() == 1662332) myId = 0;
+    // HEY ROBIN, WE'VE CHANGED THIS, SORRY
+    //if (system_get_chip_id() == 1662332) myId = 0;
+    if (system_get_chip_id() == 1943989) myId = 0;
     if (system_get_chip_id() == 9638783) myId = 1;
-    if (system_get_chip_id() == 1943989) myId = 2;
+    if (system_get_chip_id() == 14098955) myId = 2;
+
+    
 
     Serial.println("Fire2012_NeoPixelBus");
 
@@ -76,7 +80,7 @@ void setup()
 
 
     // ArduinoOTA.setPassword("admin");
-ArduinoOTA.onStart([]() {
+    ArduinoOTA.onStart([]() {
         String type;
         if (ArduinoOTA.getCommand() == U_FLASH)
             type = "sketch";
@@ -117,12 +121,13 @@ int myHue = 100;
 int mySize = 3;
 int myPulseSpeed = 100;
 
+int INACTIVE = 0;
 int ALIVE = 1;
 int SHOOTER = 2;
 int SHIELD = 3;
 int DEAD = 4;
 
-int playerState = SHOOTER;
+int animationState = INACTIVE;
 
 int patternCount = 0;
 struct Pattern
@@ -163,19 +168,21 @@ void drawPattern(int pos, bool isShortPattern, byte hue)
 
 void drawPlayer()
 {
+    if (animationState == INACTIVE) return;
+
     nscale8(leds, 15, 230);
 
-    if (playerState == ALIVE || playerState == SHIELD)
+    if (animationState == ALIVE || animationState == SHIELD)
     {
          int offset = beatsin16(37, mySize, 15 - mySize);
         if (mySize == 0) return;
         // draw center
 
-        if (playerState == SHIELD)
+        if (animationState == SHIELD)
         {
             for (int i = 0; i < 15; ++i)
             {
-                setPixel(i, CRGB(0,0, beatsin16(40, 0, 255)));
+                setPixel(i, CRGB(0,0, beatsin16(140, 100, 255) - (8 - abs(i - 7))*5));
             }
         }
 
@@ -185,12 +192,13 @@ void drawPlayer()
             setPixel(offset - i, CHSV(myHue, random(220, 255), 255 - i * 10));
         }
     }
-    else if (playerState == SHOOTER)
+    else if (animationState == SHOOTER)
     {
 
         for (int i = 0; i < 15; ++i)
         {
-            setPixel(i, CHSV(0, 0, beatsin16(150, 0, 255)));
+            //setPixel(i, CHSV(0, 0, beatsin16(250, 0, 255)));
+            setPixel(i, CHSV(0, 0, 255));
         }
 
         if (patternCount == 0)
@@ -216,7 +224,7 @@ void drawPlayer()
             }
         }
     }
-    else if (playerState == DEAD)
+    else if (animationState == DEAD)
     {
         for (int i = 0; i < 15; ++i)
         {
@@ -286,6 +294,20 @@ BLYNK_WRITE(V5)
     updateStrip();
 }
 
+int numberOfPlayers = 3;
+int readyPlayerCount = 0;
+long lastButton = 0;
+bool buttonPressed = false;
+bool isServer = false;
+bool isGameStarted = false;
+bool isUserReady = false;
+int shooterId = -1;
+int heroId = -1;
+bool hasShooterShot = false;
+long shotTimestamp = 0;
+bool hasDefendedSelf = false;
+int gameLength = 3000;
+
 BLYNK_WRITE(V6) 
 {
     int whichButton = param.asInt();
@@ -296,7 +318,7 @@ BLYNK_WRITE(V6)
     else
         leds[13 - (whichButton - 1000)] = CRGB::Black;
 
-    int buttonSum = (leds[13].b > 0 ? 1 : 0) +  (leds[12].b > 0 ? 1 : 0) +  (leds[11].b > 0 ? 1 : 0);
+    int buttonSum = (leds[13].b > 0 ? 1 : 0) + (leds[12].b > 0 ? 1 : 0) + (leds[11].b > 0 ? 1 : 0);
     digitalWrite(D2, buttonSum >= 2 ? HIGH : LOW);
 
     Serial.print("Received button: ");
@@ -304,27 +326,215 @@ BLYNK_WRITE(V6)
     //updateStrip();
 }
 
-long lastButton = 0;
-bool buttonPressed = false;
+// Other players use this to tell the server they are ready
+BLYNK_WRITE(V7) 
+{
+    readyPlayerCount++;
+}
+
+// Server uses this to tell others that the game has started
+BLYNK_WRITE(V8)
+{
+    isGameStarted = true;
+}
+
+// Server uses this to tell others who is the shooter
+BLYNK_WRITE(V9)
+{
+    shooterId = param.asInt();
+}
+
+// Shooter uses this to tell everyone, they have shot
+BLYNK_WRITE(V10)
+{
+    hasShooterShot = true;
+    shotTimestamp = millis();
+}
+
+// Someone can use this to restart the game at everyone
+BLYNK_WRITE(V11)
+{
+    restartGame();
+}
+
+// Server uses this to tell others who is the hero
+BLYNK_WRITE(V12)
+{
+    heroId = param.asInt();
+}
+
+
 void loopGame()
 {
+    if(myId == 0 && !isServer)
+    {
+        isServer = true;
+    }
+
+    if(!isGameStarted)
+    {
+        if(readyPlayerCount == numberOfPlayers) {
+            isGameStarted = true;
+            bridge1.virtualWrite(V8, 1);
+        }
+
+        if(!isUserReady) 
+        {
+            red = green = blue = 0;
+            updateStrip();
+            leds[7] = CRGB::White;
+
+            if(isButtonPressed() == 1)
+            {
+                isUserReady = true;
+                if(!isServer)
+                {
+                    bridge1.virtualWrite(V7, myId);
+                }
+                else 
+                {   
+                    readyPlayerCount++;
+                }
+            }
+        }
+        else 
+        {
+            red = green = blue = 255;
+            updateStrip();
+        }
+    }
+    else // Game has started now!
+    {
+        // Choose a shooter!
+        if(isServer && shooterId == -1)
+        {
+            shooterId = random(numberOfPlayers);
+            heroId = random(numberOfPlayers);
+            animationState = ALIVE;
+            if(shooterId == heroId) 
+            {
+                heroId = shooterId == numberOfPlayers - 1 ? shooterId - 1 : shooterId + 1; 
+            }
+
+            bridge1.virtualWrite(V9, shooterId);
+            bridge1.virtualWrite(V12, heroId);
+        }
+
+        if(shooterId == myId)
+        {
+            digitalWrite(D2, HIGH);
+            if(isButtonPressed() == 1 && !hasShooterShot)
+            {
+                bridge1.virtualWrite(V10, 1);
+                hasShooterShot = true;
+                shotTimestamp = millis();
+                red = green = 0;
+                blue = 255;
+                animationState = SHOOTER;
+                updateStrip();
+            }
+        }
+        if(hasShooterShot)
+        {
+            if(myId != heroId && myId != shooterId && !hasDefendedSelf)
+            {
+                red = 0;
+                green = blue = 255;
+                updateStrip();
+            }
+            else if (myId == heroId)
+            {
+                hasDefendedSelf = true; // hero is already protected, but if they press the button later, they lose this
+            }
+
+            if(millis() - shotTimestamp < gameLength)
+            {
+                if(isButtonPressed() == 1 && shooterId != myId)
+                {
+                    if(heroId == myId)
+                    {
+                        hasDefendedSelf = false;
+                        green = blue = 0;
+                        red = 255;
+                        animationState = DEAD;
+                        updateStrip();
+                    }
+                    else
+                    {
+                        hasDefendedSelf = true;
+                        green = 0;
+                        animationState = SHIELD;
+                        red = blue = 255;
+                        updateStrip();
+
+                    }                    
+                }   
+            }
+            else // game over, bruh
+            {
+                if(!hasDefendedSelf && shooterId != myId)
+                {
+                    green = blue = 0;
+                    red = 255;
+                    animationState = DEAD;
+                    updateStrip();
+                }
+                else if (hasDefendedSelf && shooterId != myId)
+                {
+                    green = 0;
+                    red = blue = 255;
+                    animationState = ALIVE;
+                    updateStrip();
+                }
+                else if (shooterId == myId)
+                {
+                    green = 255;
+                    red = blue = 0;
+                    animationState = SHOOTER;
+                    updateStrip();
+                }
+
+                // Let's restart the game, everyone!
+                if(isButtonPressed() == 1 && millis() - shotTimestamp > gameLength + 1000)
+                {
+                    restartGame();
+                    bridge1.virtualWrite(V11, 1);
+                }
+            }
+
+        }
+    }
+}
+
+void restartGame() {
+    Serial.println("Restart a game. Preferably this game.");
+    digitalWrite(D2, LOW);
+    readyPlayerCount = 0;
+    isGameStarted = false;
+    isUserReady = false;
+    shooterId = -1;
+    hasShooterShot = false;
+    hasDefendedSelf = false;
+    animationState = INACTIVE;
+}
+
+int isButtonPressed() {
     if (digitalRead(D3) == LOW && !buttonPressed)
     {
         Serial.println("My button pressed");
-        leds[14] = CRGB::Yellow;
         lastButton = millis();
         buttonPressed = true;
-        bridge1.virtualWrite(V6, myId);
+        return 1;
     }
 
     if (digitalRead(D3) == HIGH && millis() - lastButton > 50 && buttonPressed)
     {
         buttonPressed = false;
-        leds[14] = CRGB::Black;
-        bridge1.virtualWrite(V6, myId + 1000);
+        return 0;
     }
-}
 
+    return -1;
+}
 
 void loop()
 {
