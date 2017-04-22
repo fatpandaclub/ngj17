@@ -118,7 +118,7 @@ void setup()
 }
 
 int myHue = 100;
-int mySize = 3;
+int mySize = 0;
 int myPulseSpeed = 100;
 
 int INACTIVE = 0;
@@ -175,7 +175,6 @@ void drawPlayer()
     if (animationState == ALIVE || animationState == SHIELD)
     {
          int offset = beatsin16(37, mySize, 15 - mySize);
-        if (mySize == 0) return;
         // draw center
 
         if (animationState == SHIELD)
@@ -185,6 +184,7 @@ void drawPlayer()
                 setPixel(i, CRGB(0,0, beatsin16(140, 100, 255) - (8 - abs(i - 7))*5));
             }
         }
+        if (mySize == 0) return;
 
         for (int i = 0; i < beatsin16(myPulseSpeed, 1, mySize); i++)
         {
@@ -336,6 +336,7 @@ BLYNK_WRITE(V7)
 BLYNK_WRITE(V8)
 {
     isGameStarted = true;
+    animationState = INACTIVE;
 }
 
 // Server uses this to tell others who is the shooter
@@ -375,6 +376,7 @@ void loopGame()
     {
         if(readyPlayerCount == numberOfPlayers) {
             isGameStarted = true;
+            animationState = INACTIVE;
             bridge1.virtualWrite(V8, 1);
         }
 
@@ -410,7 +412,6 @@ void loopGame()
         {
             shooterId = random(numberOfPlayers);
             heroId = random(numberOfPlayers);
-            animationState = ALIVE;
             if(shooterId == heroId) 
             {
                 heroId = shooterId == numberOfPlayers - 1 ? shooterId - 1 : shooterId + 1; 
