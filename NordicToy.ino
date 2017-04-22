@@ -438,9 +438,7 @@ void loopGame()
         {
             if(myId != heroId && myId != shooterId && !hasDefendedSelf)
             {
-                red = 0;
-                green = blue = 255;
-                updateStrip();
+                leds[7] = CRGB(255, 0, 0);
             }
             else if (myId == heroId)
             {
