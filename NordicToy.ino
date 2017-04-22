@@ -44,10 +44,10 @@ void setup()
     Serial.println(system_get_chip_id());
 
     // HEY ROBIN, WE'VE CHANGED THIS, SORRY
-    //if (system_get_chip_id() == 1662332) myId = 0;
     if (system_get_chip_id() == 1943989) myId = 0;
     if (system_get_chip_id() == 9638783) myId = 1;
     if (system_get_chip_id() == 14098955) myId = 2;
+    if (system_get_chip_id() == 1662332) myId = 3;
 
     
 
@@ -294,7 +294,7 @@ BLYNK_WRITE(V5)
     updateStrip();
 }
 
-int numberOfPlayers = 3;
+int numberOfPlayers = 4;
 int readyPlayerCount = 0;
 long lastButton = 0;
 bool buttonPressed = false;
