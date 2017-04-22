@@ -391,6 +391,11 @@ BLYNK_WRITE(V11)
 BLYNK_WRITE(V12)
 {
     heroId = param.asInt();
+
+    if (myId == heroId)
+    {
+        hasDefendedSelf = true; // hero is already protected, but if they press the button later, they lose this
+    }
 }
 
 
