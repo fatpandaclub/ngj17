@@ -377,7 +377,8 @@ void loopGame()
     }
 }
 
-void restartGame() {
+void restartGame()
+{
     Serial.println("Restart a game. Preferably this game.");
     digitalWrite(D2, LOW);
     readyPlayerCount = 0;
@@ -387,6 +388,7 @@ void restartGame() {
     hasShooterShot = false;
     hasDefendedSelf = false;
 }
+
 
 int isButtonPressed() {
     if (digitalRead(D3) == LOW && !buttonPressed)
