@@ -29,8 +29,10 @@ int currentLEDs = 15;
 int myId = 1;
 int toyCount = 3;
 
+#define LED_PIN  3
 #define NUM_LEDS 360
 CRGB leds[NUM_LEDS];
+NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 
 void setup()
 {
@@ -110,6 +112,122 @@ ArduinoOTA.onStart([]() {
     }
 
 }
+
+int myHue = 100;
+int mySize = 3;
+int myPulseSpeed = 100;
+
+int ALIVE = 1;
+int SHOOTER = 2;
+int SHIELD = 3;
+int DEAD = 4;
+
+int playerState = SHOOTER;
+
+int patternCount = 0;
+struct Pattern
+{
+    bool isShortPattern;
+    byte hue;
+};
+Pattern patterns[5];
+
+void createRandomPattern()
+{
+    int pCount = random(1, 4);
+    for (int i = 0; i < pCount; ++i)
+    {
+        patterns[i].isShortPattern = random(0, 100) < 50;
+        patterns[i].hue = 255;
+    }
+}
+
+void setPixel(int p, CRGB col)
+{
+    if (p >= 0 && p < 15)
+        leds[p] = col;
+}
+
+void drawPattern(int pos, bool isShortPattern, byte hue)
+{
+    setPixel(pos, CHSV(hue, 255, 255));
+    setPixel(pos+1, CHSV(hue, 255, 255));
+
+    if (!isShortPattern)
+    {
+        setPixel(pos-1, CHSV(hue, 255, 255));
+        setPixel(pos+2, CHSV(hue, 255, 255));
+    }
+
+}
+
+void drawPlayer()
+{
+    nscale8(leds, 15, 230);
+
+    if (playerState == ALIVE || playerState == SHIELD)
+    {
+         int offset = beatsin16(37, mySize, 15 - mySize);
+        if (mySize == 0) return;
+        // draw center
+
+        if (playerState == SHIELD)
+        {
+            for (int i = 0; i < 15; ++i)
+            {
+                setPixel(i, CRGB(0,0, beatsin16(40, 0, 255)));
+            }
+        }
+
+        for (int i = 0; i < beatsin16(myPulseSpeed, 1, mySize); i++)
+        {
+            setPixel(offset + i, CHSV(myHue, random(220, 255), 255 - i * 10));
+            setPixel(offset - i, CHSV(myHue, random(220, 255), 255 - i * 10));
+        }
+    }
+    else if (playerState == SHOOTER)
+    {
+
+        for (int i = 0; i < 15; ++i)
+        {
+            setPixel(i, CHSV(0, 0, beatsin16(150, 0, 255)));
+        }
+
+        if (patternCount == 0)
+        {
+
+        }
+        else
+        {
+            if (patternCount == 1)
+            {
+                drawPattern(7, patterns[0].isShortPattern, patterns[0].hue);
+            }
+            else if (patternCount == 2)
+            {
+                drawPattern(5, patterns[0].isShortPattern, patterns[0].hue);
+                drawPattern(9, patterns[1].isShortPattern, patterns[1].hue);
+            }
+            else if (patternCount == 3)
+            {
+                drawPattern(3, patterns[0].isShortPattern, patterns[0].hue);
+                drawPattern(7, patterns[1].isShortPattern, patterns[1].hue);
+                drawPattern(11, patterns[2].isShortPattern, patterns[2].hue);
+            }
+        }
+    }
+    else if (playerState == DEAD)
+    {
+        for (int i = 0; i < 15; ++i)
+        {
+            setPixel(i, CRGB(beatsin16(40, 0, 255), 0, 0));
+        }
+    }
+   
+    strip.Show();
+}
+
+
 
 int red = 0;
 int green = 0;
@@ -217,6 +335,6 @@ void loop()
     loopGame();
 
     Blynk.run();
-
+    drawPlayer();
     delay(10);
 }

@@ -8,7 +8,6 @@ bool gReverseDirection = false;
 #define LED_PIN  3
 
 // NOTE: These will ignore the LED_PIN and use GPI03 pin
-NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(NUM_LEDS, LED_PIN);
 
 
 
