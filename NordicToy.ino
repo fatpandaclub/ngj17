@@ -165,10 +165,27 @@ BLYNK_WRITE(V5)
 
 BLYNK_WRITE(V6) 
 {
-    int gameState = param.asInt();
-    updateStrip();
+    int whichButton = param.asInt();
+    leds[13 - whichButton] = CRGB::Blue;
+    //updateStrip();
 }
 
+long lastButton = 0;
+void loopGame()
+{
+    if (digitalRead(D3) == LOW && millis() - lastButton > 50)
+    {
+        leds[14] = CRGB::Yellow;
+        lastButton = millis();
+        bridge1.digitalWrite(V6, myId);
+        bridge2.digitalWrite(V6, myId);
+    }
+
+    if (millis() - lastButton > 50)
+    {
+        leds[14] = CRGB::Black;
+    }
+}
 
 
 void loop()
@@ -177,5 +194,7 @@ void loop()
     server.handleClient();
     //logToEmoncms();
     keepFireAlive();
+    loopGame();
+
     Blynk.run();
 }
