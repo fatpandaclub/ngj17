@@ -45,6 +45,9 @@ void setup()
     //if (system_get_chip_id() == 1662332) myId = 0;
     if (system_get_chip_id() == 1943989) myId = 0;
     if (system_get_chip_id() == 9638783) myId = 1;
+    if (system_get_chip_id() == 14098955) myId = 2;
+
+    
 
     Serial.println("Fire2012_NeoPixelBus");
 
@@ -169,7 +172,7 @@ BLYNK_WRITE(V5)
     updateStrip();
 }
 
-int numberOfPlayers = 2;
+int numberOfPlayers = 3;
 int readyPlayerCount = 0;
 long lastButton = 0;
 bool buttonPressed = false;
@@ -177,9 +180,11 @@ bool isServer = false;
 bool isGameStarted = false;
 bool isUserReady = false;
 int shooterId = -1;
+int heroId = -1;
 bool hasShooterShot = false;
 long shotTimestamp = 0;
 bool hasDefendedSelf = false;
+int gameLength = 3000;
 
 BLYNK_WRITE(V6) 
 {
@@ -230,6 +235,13 @@ BLYNK_WRITE(V11)
     restartGame();
 }
 
+// Server uses this to tell others who is the hero
+BLYNK_WRITE(V12)
+{
+    heroId = param.asInt();
+}
+
+
 void loopGame()
 {
     if(myId == 0 && !isServer)
@@ -275,7 +287,14 @@ void loopGame()
         if(isServer && shooterId == -1)
         {
             shooterId = random(numberOfPlayers);
+            heroId = random(numberOfPlayers);
+            if(shooterId == heroId) 
+            {
+                heroId = shooterId == numberOfPlayers - 1 ? shooterId - 1 : shooterId + 1; 
+            }
+
             bridge1.virtualWrite(V9, shooterId);
+            bridge1.virtualWrite(V12, heroId);
         }
 
         if(shooterId == myId)
@@ -285,24 +304,45 @@ void loopGame()
             {
                 bridge1.virtualWrite(V10, 1);
                 hasShooterShot = true;
+                shotTimestamp = millis();
                 red = green = 0;
                 blue = 255;
                 updateStrip();
             }
         }
-        /*else // I am victim
-        {*/
         if(hasShooterShot)
         {
-            if(millis() - shotTimestamp < 250)
+            if(myId != heroId && myId != shooterId && !hasDefendedSelf)
+            {
+                red = 0;
+                green = blue = 255;
+                updateStrip();
+            }
+            else if (myId == heroId)
+            {
+                hasDefendedSelf = true; // hero is already protected, but if they press the button later, they lose this
+            }
+
+            if(millis() - shotTimestamp < gameLength)
             {
                 if(isButtonPressed() == 1 && shooterId != myId)
                 {
-                    hasDefendedSelf = true;
-                    green = 0;
-                    red = blue = 255;
-                    updateStrip();
-                }
+                    if(heroId == myId)
+                    {
+                        hasDefendedSelf = false;
+                        green = blue = 0;
+                        red = 255;
+                        updateStrip();
+                    }
+                    else
+                    {
+                        hasDefendedSelf = true;
+                        green = 0;
+                        red = blue = 255;
+                        updateStrip();
+
+                    }                    
+                }   
             }
             else // game over, bruh
             {
@@ -312,9 +352,21 @@ void loopGame()
                     red = 255;
                     updateStrip();
                 }
+                else if (hasDefendedSelf && shooterId != myId)
+                {
+                    green = 0;
+                    red = blue = 255;
+                    updateStrip();
+                }
+                else if (shooterId == myId)
+                {
+                    green = 255;
+                    red = blue = 0;
+                    updateStrip();
+                }
 
                 // Let's restart the game, everyone!
-                if(isButtonPressed() == 1 && millis() - shotTimestamp > 1250)
+                if(isButtonPressed() == 1 && millis() - shotTimestamp > gameLength + 1000)
                 {
                     restartGame();
                     bridge1.virtualWrite(V11, 1);
@@ -322,21 +374,6 @@ void loopGame()
             }
 
         }
-        /*}*/
-
-
-
-
-        /*if(isButtonPressed() == 1)
-        {
-            leds[14] = CRGB::Yellow;
-            bridge1.virtualWrite(V6, myId);
-        }
-        else if(isButtonPressed() == 0)
-        {
-            leds[14] = CRGB::Black;
-            bridge1.virtualWrite(V6, myId + 1000);
-        }*/
     }
 }
 
