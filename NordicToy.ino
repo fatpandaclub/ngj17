@@ -166,7 +166,9 @@ BLYNK_WRITE(V5)
 BLYNK_WRITE(V6) 
 {
     int whichButton = param.asInt();
-    leds[13 - whichButton] = CRGB::Blue;
+    //leds[13 - whichButton] = CRGB::Blue;
+    Serial.print("Received button: ");
+    Serial.println(whichButton);
     //updateStrip();
 }
 
@@ -177,8 +179,8 @@ void loopGame()
     {
         leds[14] = CRGB::Yellow;
         lastButton = millis();
-        bridge1.digitalWrite(V6, myId);
-        bridge2.digitalWrite(V6, myId);
+        bridge1.virtualWrite(V6, myId);
+        bridge2.virtualWrite(V6, myId);
     }
 
     if (millis() - lastButton > 50)
@@ -197,4 +199,6 @@ void loop()
     loopGame();
 
     Blynk.run();
+
+    delay(10);
 }
