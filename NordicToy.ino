@@ -1,8 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
-#include "WebInterface.h"
+// #include "WebInterface.h"
 #include "Fire.h"
-#include "Emoncms.h"
+// #include "Emoncms.h"
 #define BLYNK_PRINT Serial    // Comment this out to disable prints and save space
 #include <BlynkSimpleEsp8266.h>
 #include <WiFiUdp.h>
@@ -16,7 +16,7 @@ char* auth[3]; // = "ebbd76a09c4c46e8af5437fd6025a223"; // Nordic Toy 1
 // char auth3[] = "87ee90f313eb4cd09f5385dde6779af4"; // Nordic Toy 3
 
 WidgetBridge bridge1(V6);
-WidgetBridge bridge2(V6);
+// WidgetBridge bridge2(V6);
 
 //const char* ssid = "Zuhause";
 //const char* password = "dresden123456";
@@ -26,7 +26,7 @@ byte brightness = 31;
 
 int currentLEDs = 15;
 
-int myId = 2;
+int myId = 1;
 int toyCount = 3;
 
 #define NUM_LEDS 360
@@ -34,14 +34,21 @@ CRGB leds[NUM_LEDS];
 
 void setup()
 {
+    myId = 2;
+
     Serial.begin(115200);
     Serial.println();
+    Serial.print("My hardware id: ");
+    Serial.println(system_get_chip_id());
+
+    if (system_get_chip_id() == 1662332) myId = 0;
+    if (system_get_chip_id() == 9638783) myId = 1;
+    if (system_get_chip_id() == 1943989) myId = 2;
+
     Serial.println("Fire2012_NeoPixelBus");
 
     pinMode(D2, OUTPUT);
-
     digitalWrite(D2, LOW);
-
     pinMode(D3, INPUT_PULLUP);
 
     setupFire();
@@ -57,13 +64,13 @@ void setup()
     setupWiFi();
 
     auth[0] = "ebbd76a09c4c46e8af5437fd6025a223";
-    auth[1] = "b7d9e24a10024b958cad5abf84bcb9f7"; 
-    auth[2] = "87ee90f313eb4cd09f5385dde6779af4"; 
+    auth[1] = auth[0]; //"b7d9e24a10024b958cad5abf84bcb9f7"; 
+    auth[2] = auth[0]; //"87ee90f313eb4cd09f5385dde6779af4"; 
 
     Blynk.begin(auth[myId], ssid, password);
 
 
-    setupWebServer();
+    // setupWebServer();
 
 
     // ArduinoOTA.setPassword("admin");
@@ -129,11 +136,9 @@ void updateStrip()
 
 BLYNK_CONNECTED()
 {
-    for (int i = 0; i < toyCount; ++i)
-    {
-        bridge1.setAuthToken(auth[(myId + 1) % toyCount]);
-        bridge2.setAuthToken(auth[(myId + 2) % toyCount]);
-    }
+    bridge1.setAuthToken(auth[(myId + 1) % toyCount]);
+    //bridge2.setAuthToken(auth[(myId + 2) % toyCount]);
+    Serial.println("Set auth tokens for bridges");
 }
 
 BLYNK_WRITE(V1) 
@@ -166,26 +171,39 @@ BLYNK_WRITE(V5)
 BLYNK_WRITE(V6) 
 {
     int whichButton = param.asInt();
-    //leds[13 - whichButton] = CRGB::Blue;
+    bool isButtonPressed = whichButton < 1000;
+
+    if (isButtonPressed)
+        leds[13 - whichButton] = CRGB::Blue;
+    else
+        leds[13 - (whichButton - 1000)] = CRGB::Black;
+
+    int buttonSum = (leds[13].b > 0 ? 1 : 0) +  (leds[12].b > 0 ? 1 : 0) +  (leds[11].b > 0 ? 1 : 0);
+    digitalWrite(D2, buttonSum >= 2 ? HIGH : LOW);
+
     Serial.print("Received button: ");
     Serial.println(whichButton);
     //updateStrip();
 }
 
 long lastButton = 0;
+bool buttonPressed = false;
 void loopGame()
 {
-    if (digitalRead(D3) == LOW && millis() - lastButton > 50)
+    if (digitalRead(D3) == LOW && !buttonPressed)
     {
+        Serial.println("My button pressed");
         leds[14] = CRGB::Yellow;
         lastButton = millis();
+        buttonPressed = true;
         bridge1.virtualWrite(V6, myId);
-        bridge2.virtualWrite(V6, myId);
     }
 
-    if (millis() - lastButton > 50)
+    if (digitalRead(D3) == HIGH && millis() - lastButton > 50 && buttonPressed)
     {
+        buttonPressed = false;
         leds[14] = CRGB::Black;
+        bridge1.virtualWrite(V6, myId + 1000);
     }
 }
 
@@ -193,7 +211,7 @@ void loopGame()
 void loop()
 {
     ArduinoOTA.handle();
-    server.handleClient();
+    // server.handleClient();
     //logToEmoncms();
     keepFireAlive();
     loopGame();
