@@ -46,6 +46,14 @@ void setup()
 
     setupFire();
 
+    for (int i = 0; i < 15; ++i)
+    {
+        leds[i] = CRGB::Black;
+        if (i <= myId) leds[i] = CRGB::Red;
+    }
+    //strip.Show();
+    keepFireAlive();
+
     setupWiFi();
 
     auth[0] = "ebbd76a09c4c46e8af5437fd6025a223";
@@ -87,6 +95,13 @@ ArduinoOTA.onStart([]() {
     Serial.println("Ready");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+
+    for (int i = 0; i < 15; ++i)
+    {
+        leds[i] = CRGB::Black;
+        if (i <= myId) leds[i] = CRGB::Green;
+    }
+
 }
 
 int red = 0;
