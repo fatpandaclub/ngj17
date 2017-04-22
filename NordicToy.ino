@@ -11,7 +11,7 @@
 //char auth[] = "ccfb9e756f0d48c9a430bb08615208f0"; // Go to the Project Settings (nut icon).
 // char auth[] = "658343a33bfc49d1aeb1465ffa2d85fe"; // Go to the Project Settings (nut icon).
 
-char* auth[3]; // = "ebbd76a09c4c46e8af5437fd6025a223"; // Nordic Toy 1
+char* auth; // = "ebbd76a09c4c46e8af5437fd6025a223"; // Nordic Toy 1
 // char auth2[] = "b7d9e24a10024b958cad5abf84bcb9f7"; // Nordic Toy 2
 // char auth3[] = "87ee90f313eb4cd09f5385dde6779af4"; // Nordic Toy 3
 
@@ -34,7 +34,7 @@ CRGB leds[NUM_LEDS];
 
 void setup()
 {
-    myId = 2;
+    myId = 3;
 
     Serial.begin(115200);
     Serial.println();
@@ -63,11 +63,11 @@ void setup()
 
     setupWiFi();
 
-    auth[0] = "ebbd76a09c4c46e8af5437fd6025a223";
-    auth[1] = auth[0]; //"b7d9e24a10024b958cad5abf84bcb9f7"; 
-    auth[2] = auth[0]; //"87ee90f313eb4cd09f5385dde6779af4"; 
+    auth = "ebbd76a09c4c46e8af5437fd6025a223";
+    //auth[1] = auth[0]; //"b7d9e24a10024b958cad5abf84bcb9f7"; 
+    //auth[2] = auth[0]; //"87ee90f313eb4cd09f5385dde6779af4"; 
 
-    Blynk.begin(auth[myId], ssid, password);
+    Blynk.begin(auth, ssid, password);
 
 
     // setupWebServer();
@@ -136,9 +136,9 @@ void updateStrip()
 
 BLYNK_CONNECTED()
 {
-    bridge1.setAuthToken(auth[(myId + 1) % toyCount]);
+    bridge1.setAuthToken(auth);
     //bridge2.setAuthToken(auth[(myId + 2) % toyCount]);
-    Serial.println("Set auth tokens for bridges");
+    Serial.println("Set auth tokens for bridge");
 }
 
 BLYNK_WRITE(V1) 
