@@ -29,6 +29,8 @@ int currentLEDs = 15;
 int myId = 1;
 int toyCount = 3;
 
+long vibrationTimestamp = 0;
+
 #define LED_PIN  3
 #define NUM_LEDS 360
 CRGB leds[NUM_LEDS];
@@ -422,6 +424,7 @@ void loopGame()
 
             if(isButtonPressed() == 1)
             {
+                vibrationTimestamp = millis() + 100;
                 isUserReady = true;
                 if(!isServer)
                 {
@@ -465,6 +468,7 @@ void loopGame()
             digitalWrite(D2, HIGH);
             if(isButtonPressed() == 1 && !hasShooterShot)
             {
+
                 bridge1.virtualWrite(V10, 1);
                 hasShooterShot = true;
                 shotTimestamp = millis();
@@ -492,14 +496,19 @@ void loopGame()
                 {
                     if(heroId == myId)
                     {
+                        if (hasDefendedSelf)
+                            vibrationTimestamp = millis() + 1000;
                         hasDefendedSelf = false;
                         green = blue = 0;
                         red = 255;
                         animationState = DEAD;
+
                         updateStrip();
                     }
                     else
                     {
+                        if (!hasDefendedSelf)
+                            vibrationTimestamp = millis() + 100;
                         hasDefendedSelf = true;
                         green = 0;
                         animationState = SHIELD;
@@ -517,6 +526,7 @@ void loopGame()
                     red = 255;
                     animationState = DEAD;
                     updateStrip();
+                    if (myId != heroId) vibrationTimestamp = millis() + 1000; // hero already vibrated
                 }
                 else if (hasDefendedSelf && shooterId != myId)
                 {
@@ -542,6 +552,15 @@ void loopGame()
             }
 
         }
+    }
+
+    if (vibrationTimestamp > millis() || (myId == shooterId && !hasShooterShot))
+    {
+        digitalWrite(D2, HIGH);
+    }
+    else
+    {
+        digitalWrite(D2, LOW);
     }
 }
 
