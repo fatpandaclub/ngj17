@@ -23,8 +23,12 @@ WidgetBridge bridge1(V6);
 const char* ssid = "Nordic Game Jam 2017";
 const char* password = "notthere";
 byte brightness = 31;
+byte originalBrightness = 31;
 
 int currentLEDs = 15;
+int tick = 0;
+long shotTimestamp = 0;
+int gameLength = 2500;
 
 int myId = 1;
 int toyCount = 3;
@@ -120,7 +124,7 @@ void setup()
 }
 
 int myHue = 100;
-int mySize = 0;
+int mySize = 5;
 int myPulseSpeed = 100;
 
 int INACTIVE = 0;
@@ -175,7 +179,7 @@ void drawPlayer()
 {
     if (animationState == INACTIVE) return;
 
-    if (animationState == BLACK || animationState == TARGET)
+    if (animationState == BLACK )
     {
         for (int i = 0; i < 15; ++i)
         {
@@ -183,18 +187,15 @@ void drawPlayer()
             setPixel(i, CHSV(0, 0, 0));
         }
 
-        if (animationState == TARGET)
-        {
-            setPixel(7, CRGB(255, 0, 0));
-        }
+
         return;
     }
 
-    nscale8(leds, 15, 230);
+    nscale8(leds, 15, 250);
 
     if (animationState == WIN)
     {
-        int offset = beatsin16(37, 6, 15 - 6);
+        int offset = beatsin16(57, 5, 15 - 6);
         for (int i = 0; i < beatsin16(myPulseSpeed, 1, 6); i++)
         {
             setPixel(offset + i, CRGB(0, 255, 0));
@@ -202,26 +203,33 @@ void drawPlayer()
         }
     }
 
+    if ( animationState == SHIELD )
+    {
+        for (int i = 0; i < 15; ++i)
+        {
+            setPixel(i, CRGB(0,0, beatsin16(140, 100, 255) - (8 - abs(i - 7))*5));
+        }
+    }
 
-    if (animationState == ALIVE || animationState == SHIELD)
+    if (animationState == ALIVE|| animationState == TARGET)
     {
          int offset = beatsin16(37, mySize, 15 - mySize);
         // draw center
 
-        if (animationState == SHIELD)
-        {
-            for (int i = 0; i < 15; ++i)
-            {
-                setPixel(i, CRGB(0,0, beatsin16(140, 100, 255) - (8 - abs(i - 7))*5));
-            }
-        }
         if (mySize == 0) return;
 
         for (int i = 0; i < beatsin16(myPulseSpeed, 1, mySize); i++)
         {
-            setPixel(offset + i, CHSV(myHue, random(220, 255), 255 - i * 10));
-            setPixel(offset - i, CHSV(myHue, random(220, 255), 255 - i * 10));
+            setPixel(offset + i, CHSV(myHue + i, random(220, 255), 255 - i * 20));
+            setPixel(offset - i, CHSV(myHue + i, random(220, 255), 255 - i * 20));
         }
+        if (tick % 2 == 0) myHue++;
+
+        if (animationState == TARGET)
+        {
+            setPixel(7, CRGB(255, 0, 0));
+        }
+
     }
     else if (animationState == SHOOTER)
     {
@@ -231,6 +239,9 @@ void drawPlayer()
             //setPixel(i, CHSV(0, 0, beatsin16(250, 0, 255)));
             setPixel(i, CHSV(0, 0, 255));
         }
+        brightness = ((tick / 3) % 5 == 0) ? 255 : originalBrightness;
+        if (millis() - shotTimestamp > gameLength)
+            brightness = originalBrightness;
 
         if (patternCount == 0)
         {
@@ -286,7 +297,7 @@ void updateStrip()
         {
             leds[i].r = 0;
             leds[i].g = 0;
-            leds[i].b = 0; 
+            leds[i].b = 0;
         }
     }
 }
@@ -301,6 +312,7 @@ BLYNK_CONNECTED()
 BLYNK_WRITE(V1) 
 {
     brightness = param.asInt(); 
+    originalBrightness = brightness;
 }
 
 BLYNK_WRITE(V2) 
@@ -335,19 +347,17 @@ bool isUserReady = false;
 int shooterId = -1;
 int heroId = -1;
 bool hasShooterShot = false;
-long shotTimestamp = 0;
 bool hasDefendedSelf = false;
-int gameLength = 3000;
 
 BLYNK_WRITE(V6) 
 {
     int whichButton = param.asInt();
     bool isButtonPressed = whichButton < 1000;
 
-    if (isButtonPressed)
-        leds[13 - whichButton] = CRGB::Blue;
-    else
-        leds[13 - (whichButton - 1000)] = CRGB::Black;
+    // if (isButtonPressed)
+    //     leds[13 - whichButton] = CRGB::Blue;
+    // else
+    //     leds[13 - (whichButton - 1000)] = CRGB::Black;
 
     int buttonSum = (leds[13].b > 0 ? 1 : 0) + (leds[12].b > 0 ? 1 : 0) + (leds[11].b > 0 ? 1 : 0);
     digitalWrite(D2, buttonSum >= 2 ? HIGH : LOW);
@@ -367,7 +377,8 @@ BLYNK_WRITE(V7)
 BLYNK_WRITE(V8)
 {
     isGameStarted = true;
-    animationState = BLACK;
+    animationState = ALIVE;
+    myHue = random(0, 255);
 }
 
 // Server uses this to tell others who is the shooter
@@ -403,6 +414,7 @@ BLYNK_WRITE(V12)
 
 void loopGame()
 {
+    tick++;
     if(myId == 0 && !isServer)
     {
         isServer = true;
@@ -412,7 +424,8 @@ void loopGame()
     {
         if(readyPlayerCount == numberOfPlayers) {
             isGameStarted = true;
-            animationState = BLACK;
+            animationState = ALIVE;
+            myHue = random(0, 255);
             bridge1.virtualWrite(V8, 1);
         }
 
@@ -524,9 +537,9 @@ void loopGame()
                 {
                     green = blue = 0;
                     red = 255;
+                    if (myId != heroId && animationState != DEAD) vibrationTimestamp = millis() + 1000; // hero already vibrated
                     animationState = DEAD;
                     updateStrip();
-                    if (myId != heroId) vibrationTimestamp = millis() + 1000; // hero already vibrated
                 }
                 else if (hasDefendedSelf && shooterId != myId)
                 {
@@ -540,6 +553,7 @@ void loopGame()
                     green = 255;
                     red = blue = 0;
                     animationState = SHOOTER;
+                    brightness = originalBrightness;
                     updateStrip();
                 }
 
@@ -575,6 +589,7 @@ void restartGame()
     hasShooterShot = false;
     hasDefendedSelf = false;
     animationState = INACTIVE;
+    brightness = originalBrightness;
 }
 
 
